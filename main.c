@@ -1,51 +1,55 @@
 #include "monty.h"
 
-int value[3] = {0, 0, 0};
 /**
- * main - Interpreter of the Monty Language
- * @argc: argument count
- * @argv: the list of arguments
- * Return: 1 if passed
+ *  main - Main
+ *
+ *  @argc: Number of args
+ *
+ *  @argv: Command line args
+ *
+ *  Return: Void
  */
 
 int main(int argc, char *argv[])
 {
-	char *path, *line, *tok_line[2];
-	FILE *fp;
-	void (*fptr)(stack_t **stack, unsigned int ln);
-	stack_t *head;
-	size_t len, lineno, status;
-	ssize_t read;
+	stack_t *head = NULL;
+	char  *str = NULL, *operator_array[2], *temp;
+	size_t bufsize = 1024, line_count = 0;
+	ssize_t get_line;
+	void (*operator_function)(stack_t **stack, unsigned int line_number);
 
-	head = NULL;
-	line = NULL;
-	check_argc(argc);
-	path = argv[1];
-
-	fp = fopen(path, "r");
-	check_file_stream(fp, path);
-	for (lineno = 1; (read = getline(&line, &len, fp)) != -1; lineno++)
+	if (argc != 2)
+		fprintf(stderr, "USAGE: monty file\n"), exit(EXIT_FAILURE);
+	file = fopen(argv[1], "r");
+	if (file == NULL)
+		fprintf(stderr, "Error: Can't open file %s\n", argv[1]), exit(EXIT_FAILURE);
+	while (1)
 	{
-		if (check_empty(line))
-			continue;
-		status = tokenize_line(line, tok_line);
-		if (status == 0)
-			continue;
+		get_line = getline(&str, &bufsize, file);
+		if (get_line == -1)
+			break;
+		line_count++;
+		operator_array[0] = strtok(str, "\n ");
+		if (operator_array[0] == NULL)
+			get_nop(&head, line_count);
+		else if (strcmp("push", operator_array[0]) == 0)
+		{
+			temp = strtok(NULL, "\n ");
 
-		check_if_push(tok_line, lineno);
-		check_fail(line, fp, head);
-		check_data_structure(tok_line[0]);
-		fptr = get_opcode_func(tok_line[0]);
-		check_opcode(fptr, lineno, tok_line[0]);
-		check_fail(line, fp, head);
+			get_push(&head, line_count, temp);
+		}
+		else if (operator_array[0] != NULL && operator_array[0][0] != '#')
+		{
+			operator_function = go(operator_array[0], line_count, &head);
 
-		(*fptr)(&head, lineno);
-		check_fail(line, fp, head);
-		clear_strings(tok_line);
+			if (operator_function == NULL && line_count == 0)
+			{
+				fprintf(stderr, "L%ld: unknown instruction %s\n",
+					line_count, operator_array[0]), exit(EXIT_FAILURE);
+			}
+		operator_function(&head, line_count);
+		}
 	}
-	free(line);
-	fclose(fp);
-	free_stack(head);
-
+	fclose(file), free(str), get_free(head);
 	return (0);
 }
